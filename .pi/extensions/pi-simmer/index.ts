@@ -83,13 +83,23 @@ function run(command: string, args: string[], timeoutMs = 30_000): CommandResult
 	}
 }
 
+function supportedPython(command: string): boolean {
+	const result = run(command, ["--version"], 5_000);
+	if (!result.ok) return false;
+	const match = `${result.stdout}\n${result.stderr}`.match(/Python (\d+)\.(\d+)/);
+	if (!match) return false;
+	const major = Number.parseInt(match[1], 10);
+	const minor = Number.parseInt(match[2], 10);
+	return major > 3 || (major === 3 && minor >= 11);
+}
+
 function resolvePython(): string | undefined {
 	if (pythonCommand !== undefined) return pythonCommand || undefined;
 	const candidates = [process.env.PI_SIMMER_PYTHON, "python3", "python"].filter(
 		(candidate): candidate is string => Boolean(candidate),
 	);
 	for (const candidate of candidates) {
-		if (run(candidate, ["--version"], 5_000).ok) {
+		if (supportedPython(candidate)) {
 			pythonCommand = candidate;
 			return candidate;
 		}
@@ -131,6 +141,10 @@ function simRuntimeIntegrityError(): string | undefined {
 }
 
 async function installSimsimmer(): Promise<string> {
+	if (!simRuntimeIntegrityError()) {
+		return `Pinned Simsimmer 0.1.0 (${SIM_PIN}) already present at ${SIM_RUNTIME_ROOT}.`;
+	}
+
 	const payloads: Array<{ path: string; bytes: Buffer }> = [];
 	for (const file of SIM_FILES) {
 		const url = `https://raw.githubusercontent.com/rfreel/Simsimmer/${SIM_PIN}/${file.path}`;
@@ -189,32 +203,35 @@ function verifyExistingOptMem(path: string): string | undefined {
 }
 
 async function installOptMem(): Promise<string> {
-	const existing = verifyExistingOptMem(memoPath());
-	if (existing) return existing;
-	const response = await fetch(OPTMEM_URL);
-	if (!response.ok) {
-		throw new Error(`OptMem download failed: HTTP ${response.status}`);
+	let status = verifyExistingOptMem(memoPath());
+	if (!status) {
+		const response = await fetch(OPTMEM_URL);
+		if (!response.ok) {
+			throw new Error(`OptMem download failed: HTTP ${response.status}`);
+		}
+		const source = await response.text();
+		const bytes = Buffer.from(source, "utf8");
+		const blobSha = gitBlobSha(bytes);
+		if (blobSha !== OPTMEM_BLOB_SHA) {
+			throw new Error(`OptMem integrity mismatch: expected ${OPTMEM_BLOB_SHA}, got ${blobSha}`);
+		}
+		if (!source.includes("def cmd_wake") || !source.includes("def cmd_note")) {
+			throw new Error("Downloaded OptMem payload failed structural validation.");
+		}
+		await mkdir(dirname(memoPath()), { recursive: true });
+		const tmp = `${memoPath()}.tmp-${process.pid}`;
+		await writeFile(tmp, source, { encoding: "utf8", mode: 0o755 });
+		await chmod(tmp, 0o755);
+		await rename(tmp, memoPath());
+		status = `Installed pinned OptMem ${OPTMEM_COMMIT} at ${memoPath()}.`;
 	}
-	const source = await response.text();
-	const bytes = Buffer.from(source, "utf8");
-	const blobSha = gitBlobSha(bytes);
-	if (blobSha !== OPTMEM_BLOB_SHA) {
-		throw new Error(`OptMem integrity mismatch: expected ${OPTMEM_BLOB_SHA}, got ${blobSha}`);
-	}
-	if (!source.includes("def cmd_wake") || !source.includes("def cmd_note")) {
-		throw new Error("Downloaded OptMem payload failed structural validation.");
-	}
-	await mkdir(dirname(memoPath()), { recursive: true });
-	const tmp = `${memoPath()}.tmp-${process.pid}`;
-	await writeFile(tmp, source, { encoding: "utf8", mode: 0o755 });
-	await chmod(tmp, 0o755);
-	await rename(tmp, memoPath());
+
 	const init = runMemo(["init"]);
 	if (!init.ok && !`${init.stdout}\n${init.stderr}`.toLowerCase().includes("already")) {
 		throw new Error(`OptMem init failed: ${init.stderr || init.stdout}`);
 	}
 	wakeCache = undefined;
-	return `Installed pinned OptMem ${OPTMEM_COMMIT} at ${memoPath()}.`;
+	return status;
 }
 
 function wakeAll(): string {
@@ -344,7 +361,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("simmer-setup", {
-		description: "Install the pinned OptMem dependency used by Pi Simmer",
+		description: "Install pinned OptMem and Simsimmer runtimes used by Pi Simmer",
 		handler: async (_args, ctx) => {
 			try {
 				const optmem = await installOptMem();
