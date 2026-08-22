@@ -1,0 +1,35 @@
+{
+	"name": "@rfreel/pi-simmer",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Pi package combining OptMem persistent memory with a pinned Simsimmer policy simulator.",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"memory",
+		"simulation",
+		"agent"
+	],
+	"files": [
+		"index.ts",
+		"README.md",
+		"versions.json"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@mariozechner/pi-coding-agent": "*",
+		"@sinclair/typebox": "*"
+	},
+	"scripts": {
+		"clean": "node -e \"\"",
+		"build": "node -e \"\"",
+		"check": "tsc --noEmit -p tsconfig.json"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}

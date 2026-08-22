@@ -1,0 +1,24 @@
+{
+  "package": {
+    "name": "@rfreel/pi-simmer",
+    "version": "0.1.0"
+  },
+  "pi_host": {
+    "repo": "rfreel/pi-mono",
+    "commit": "34878e7cc8074f42edff6c2cdcc9828aa9b6afde",
+    "coding_agent_version": "0.52.9"
+  },
+  "optmem": {
+    "repo": "VictorTaelin/OptMem",
+    "commit": "1fb164cf39028047781f72ac3bb1e5a691c1dcb0",
+    "integration": "download-on-explicit-setup",
+    "vendored": false
+  },
+  "simsimmer": {
+    "repo": "rfreel/Simsimmer",
+    "version": "0.1.0",
+    "commit": "cdc74975f620853d76991c84f862aa90833c28a1",
+    "simulator_sha256": "be6a39b09e522778c00ffa4d14258140f897110f9eb9cef53bbd198a960c9320",
+    "integration": "download-on-explicit-setup"
+  }
+}
