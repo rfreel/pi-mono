@@ -1,0 +1,11 @@
+{
+  "name": "cleanroom-pi-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/*.js test/*.js"
+  },
+  "engines": {"node": ">=20"}
+}
